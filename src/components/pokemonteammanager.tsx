@@ -39,12 +39,17 @@ import {
 } from "@/components/ui/dialog"
 
 import { Separator } from "@/components/ui/separator"
+import { data } from 'react-router-dom'
 
 interface Pokemon {
   name: string
   type: string[]
   id: number
 }
+
+
+
+
 
 export default function PokemonTeamManager({ initialPokedex }: { initialPokedex: Pokemon[] }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -53,6 +58,15 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
   const [activeTab, setActiveTab] = useState<string>('pokedex')
   const [team, setTeam] = useState<Pokemon[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  
+  // Define an interface for your API response data
+  interface ApiData {
+    message: string;
+    // Add other properties your API returns here
+  }
+  
+  // Type the data state correctly
+  const [data, setData] = useState<ApiData | null>(null);
   
   // Get unique Pokémon types for the dropdown filter
   const uniqueTypes = [...new Set(initialPokedex.flatMap(pokemon => pokemon.type))]
@@ -68,11 +82,27 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
       }
     }
   }, [])
-
+  
   // Save team to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('pokemonTeam', JSON.stringify(team))
   }, [team])
+  
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/api/data/")
+      .then((response) => response.json())
+      .then((data: ApiData) => setData(data))
+      .catch((error) => console.error("Error fetching data:", error));
+  }, []);
+  
+  return (
+    <div className="p-4">
+      <h1 className="text-xl font-bold">Pokémon Team Manager</h1>
+      <p>{data ? data.message : "Loading data from backend..."}</p>
+    </div>
+  );
+
+  
   
   // Filter Pokémon based on search term and type filter
   const filteredPokemon = pokedex.filter(pokemon => {
@@ -340,4 +370,8 @@ function getTypeColor(type: string): string {
   }
   
   return typeColors[type] || '#777777'
+}
+
+function setData(data: any): any {
+  throw new Error('Function not implemented.')
 }
