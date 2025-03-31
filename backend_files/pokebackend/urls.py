@@ -1,5 +1,5 @@
 """
-URL configuration for pokebackend project.
+URL configuration for backend_files project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/4.2/topics/http/urls/
@@ -24,5 +24,7 @@ def home(request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("api.urls")),  # API Endpoints
+    path('api-auth/', include('rest_framework.urls')),
     path("", home),  # Root path ("/") response
+
 ]

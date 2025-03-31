@@ -5,7 +5,7 @@ from .views import (
 )
 
 urlpatterns = [
-    path('pokemon/', PokemonFullInfoList.as_view(), name='pokemon-full-info-list'),
+    path('models/', PokemonFullInfoList.as_view(), name='pokemon-full-info-list'),
     path('pokemon/<int:pokemon_id>/', PokemonFullInfoDetail.as_view(), name='pokemon-full-info-detail'),
     path('team-pokemon-moves/', TeamPokemonMovesList.as_view(), name='team-pokemon-moves-list'),
     path('pokemon-evolutions/', PokemonEvolutionsList.as_view(), name='pokemon-evolutions-list'),
