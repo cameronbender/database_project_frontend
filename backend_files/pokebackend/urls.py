@@ -18,12 +18,16 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
 
+from pokebackend.api.models import PokemonFullInfo
+from pokebackend.api.serializers import PokemonFullInfoSerializer
+
 def home(request):
-    return JsonResponse({"message": "Welcome to the Django API!"})
+    qs = PokemonFullInfo.objects.all()
+    serializer = PokemonFullInfoSerializer(qs, many=True)
+    return JsonResponse(serializer.data, safe=False)
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
-path('api/', include('pokebackend.api.urls')),
-    path("", home),  # Root path ("/") response
-
+    path('admin/', admin.site.urls),
+    path('api/', include('pokebackend.api.urls')),
+    path("", home),  # Root URL now returns all Pokémon info
 ]
