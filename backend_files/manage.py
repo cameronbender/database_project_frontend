@@ -3,10 +3,12 @@
 import os
 import sys
 
+print("DEBUG: Current working directory:", os.getcwd())
+print("DEBUG: sys.path:", sys.path)
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend_files.pokebackend.settings")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pokebackend.settings")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

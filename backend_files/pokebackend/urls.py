@@ -23,8 +23,7 @@ def home(request):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/", include("api.urls")),  # API Endpoints
-    path('api-auth/', include('rest_framework.urls')),
+path('api/', include('pokebackend.api.urls')),
     path("", home),  # Root path ("/") response
 
 ]
