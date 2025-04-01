@@ -1,10 +1,9 @@
 'use client'
 
-import React from 'react'
 import { useState, useEffect } from 'react'
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, Plus, X, Users, List, Save } from "lucide-react"
+import { Search, Plus, X, Users, List, Save, Info } from "lucide-react"
 import { toast } from "sonner"
 import {
   Card,
@@ -12,6 +11,7 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
+  CardFooter,
 } from '@/components/ui/card'
 
 import {
@@ -40,12 +40,37 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+
 import { Separator } from "@/components/ui/separator"
 
 interface Pokemon {
   name: string
   type: string[]
   id: number
+}
+
+// Extended Pokemon interface with additional details
+interface PokemonDetails extends Pokemon {
+  description?: string
+  height?: number
+  weight?: number
+  abilities?: string[]
+  stats?: {
+    hp: number
+    attack: number
+    defense: number
+    specialAttack: number
+    specialDefense: number
+    speed: number
+  }
+  evolutionChain?: string[]
 }
 
 interface SavedTeam {
@@ -64,6 +89,8 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
   const [teamName, setTeamName] = useState('')
   const [savedTeams, setSavedTeams] = useState<SavedTeam[]>([])
+  const [selectedPokemon, setSelectedPokemon] = useState<PokemonDetails | null>(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
 
   // Define an interface for your API response data
   interface ApiData {
@@ -116,7 +143,7 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
   }, []);
 
   // Filter Pokémon based on search term and type filter
-  const filteredPokemon = pokedex.filter((pokemon: Pokemon) => {
+  const filteredPokemon = pokedex.filter(pokemon => {
     const matchesSearch = pokemon.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesType = typeFilter === 'all' || pokemon.type.includes(typeFilter)
     return matchesSearch && matchesType
@@ -205,8 +232,225 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
     })
   }
 
+  // Show Pokémon details
+  const showPokemonDetails = (pokemon: Pokemon) => {
+    // Mock fetching additional details here
+    // In a real app, you would fetch this from your API
+    const mockDetails: PokemonDetails = {
+      ...pokemon,
+      description: `${pokemon.name} is a ${pokemon.type.join('/')} type Pokémon introduced in Generation I.`,
+      height: Math.random() * 20, // Random height between 0-20
+      weight: Math.random() * 1000, // Random weight between 0-1000
+      abilities: ["Ability 1", "Ability 2", "Hidden Ability"],
+      stats: {
+        hp: Math.floor(Math.random() * 100) + 50,
+        attack: Math.floor(Math.random() * 100) + 50,
+        defense: Math.floor(Math.random() * 100) + 50,
+        specialAttack: Math.floor(Math.random() * 100) + 50,
+        specialDefense: Math.floor(Math.random() * 100) + 50,
+        speed: Math.floor(Math.random() * 100) + 50
+      },
+      evolutionChain: pokemon.id % 3 === 1 ? [pokemon.name, `${pokemon.name} 2`, `${pokemon.name} 3`] : [pokemon.name]
+    }
+
+    setSelectedPokemon(mockDetails)
+    setIsDetailOpen(true)
+  }
+
+  // Render individual Pokémon card
+  const renderPokemonCard = (pokemon: Pokemon, inTeam: boolean = false) => (
+    <Card
+      key={pokemon.id}
+      className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+      onClick={() => showPokemonDetails(pokemon)}
+    >
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <span>#{pokemon.id.toString().padStart(3, '0')}</span>
+              <span>{pokemon.name}</span>
+            </CardTitle>
+            <CardDescription>
+              {pokemon.type.map((type) => (
+                <span key={type} className="inline-block px-2 py-1 rounded-full text-xs font-medium mr-1 mb-1"
+                  style={{
+                    backgroundColor: getTypeColor(type),
+                    color: ['Electric', 'Ice', 'Fairy', 'Normal'].includes(type) ? '#333' : 'white'
+                  }}>
+                  {type}
+                </span>
+              ))}
+            </CardDescription>
+          </div>
+          {/* Prevent detail opening when clicking buttons */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation();
+              inTeam ? removeFromTeam(pokemon.id) : addToTeam(pokemon);
+            }}
+          >
+            {inTeam ? <X size={16} /> : <Plus size={16} />}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardFooter className="pt-0 pb-3">
+        <div className="w-full flex justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs flex items-center gap-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              showPokemonDetails(pokemon);
+            }}
+          >
+            <Info size={14} />
+            <span>View Details</span>
+          </Button>
+        </div>
+      </CardFooter>
+    </Card>
+  )
+
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Pokémon Detail Sheet */}
+      <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          {selectedPokemon && (
+            <>
+              <SheetHeader className="text-left">
+                <SheetTitle className="flex items-center gap-2 text-2xl">
+                  <span>#{selectedPokemon.id.toString().padStart(3, '0')}</span>
+                  <span>{selectedPokemon.name}</span>
+                </SheetTitle>
+                <div className="flex gap-1 flex-wrap mb-2">
+                  {selectedPokemon.type.map((type) => (
+                    <span key={type} className="inline-block px-3 py-1 rounded-full text-sm font-medium"
+                      style={{
+                        backgroundColor: getTypeColor(type),
+                        color: ['Electric', 'Ice', 'Fairy', 'Normal'].includes(type) ? '#333' : 'white'
+                      }}>
+                      {type}
+                    </span>
+                  ))}
+                </div>
+              </SheetHeader>
+
+              <div className="mt-6">
+                <p className="text-gray-700">{selectedPokemon.description}</p>
+
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div className="border rounded-md p-3">
+                    <h4 className="text-sm font-semibold text-gray-500 mb-1">Height</h4>
+                    <p>{selectedPokemon.height?.toFixed(1)} m</p>
+                  </div>
+                  <div className="border rounded-md p-3">
+                    <h4 className="text-sm font-semibold text-gray-500 mb-1">Weight</h4>
+                    <p>{selectedPokemon.weight?.toFixed(1)} kg</p>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <h4 className="font-semibold text-lg mb-2">Abilities</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPokemon.abilities?.map((ability, index) => (
+                      <span
+                        key={ability}
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          index === selectedPokemon.abilities!.length - 1 
+                            ? 'bg-purple-100 text-purple-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {ability}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <h4 className="font-semibold text-lg mb-3">Base Stats</h4>
+                  {selectedPokemon.stats && (
+                    <div className="space-y-3">
+                      {Object.entries(selectedPokemon.stats).map(([stat, value]) => {
+                        const formattedStat = stat.replace(/([A-Z])/g, ' $1').trim()
+                        const percentage = (value / 150) * 100 // Assuming max base stat is 150
+
+                        return (
+                          <div key={stat}>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-sm font-medium capitalize">{formattedStat}</span>
+                              <span className="text-sm font-medium">{value}</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-blue-600 h-2 rounded-full"
+                                style={{ width: `${percentage}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {selectedPokemon.evolutionChain && selectedPokemon.evolutionChain.length > 1 && (
+                  <div className="mt-6">
+                    <h4 className="font-semibold text-lg mb-3">Evolution Chain</h4>
+                    <div className="flex items-center">
+                      {selectedPokemon.evolutionChain.map((evo, index) => (
+                        <div key={evo} className="flex items-center">
+                          <div className="text-center">
+                            <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-1">
+                              {evo.charAt(0)}
+                            </div>
+                            <p className="text-sm">{evo}</p>
+                          </div>
+
+                          {index < selectedPokemon.evolutionChain!.length - 1 && (
+                            <div className="mx-2 text-gray-400">→</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-8 flex justify-between">
+                  {!team.some(p => p.id === selectedPokemon.id) ? (
+                    <Button
+                      onClick={() => {
+                        addToTeam(selectedPokemon)
+                        setIsDetailOpen(false)
+                      }}
+                      className="w-full"
+                    >
+                      Add to Team
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        removeFromTeam(selectedPokemon.id)
+                        setIsDetailOpen(false)
+                      }}
+                      className="w-full"
+                    >
+                      Remove from Team
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
       {/* Main Navigation Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -260,39 +504,7 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
 
           {/* Pokémon Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredPokemon.map(pokemon => (
-              <Card key={pokemon.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <span>#{pokemon.id.toString().padStart(3, '0')}</span>
-                        <span>{pokemon.name}</span>
-                      </CardTitle>
-                      <CardDescription>
-                        {pokemon.type.map((type) => (
-                          <span key={type} className="inline-block px-2 py-1 rounded-full text-xs font-medium mr-1 mb-1"
-                            style={{
-                              backgroundColor: getTypeColor(type),
-                              color: ['Electric', 'Ice', 'Fairy', 'Normal'].includes(type) ? '#333' : 'white'
-                            }}>
-                            {type}
-                          </span>
-                        ))}
-                      </CardDescription>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => addToTeam(pokemon)}
-                      disabled={team.some(p => p.id === pokemon.id)}
-                    >
-                      <Plus size={16} />
-                    </Button>
-                  </div>
-                </CardHeader>
-              </Card>
-            ))}
+            {filteredPokemon.map(pokemon => renderPokemonCard(pokemon))}
           </div>
 
           {/* No Results State */}
@@ -383,38 +595,7 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {team.map(pokemon => (
-                  <Card key={pokemon.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="flex items-center gap-2">
-                            <span>#{pokemon.id.toString().padStart(3, '0')}</span>
-                            <span>{pokemon.name}</span>
-                          </CardTitle>
-                          <CardDescription>
-                            {pokemon.type.map((type) => (
-                              <span key={type} className="inline-block px-2 py-1 rounded-full text-xs font-medium mr-1 mb-1"
-                                style={{
-                                  backgroundColor: getTypeColor(type),
-                                  color: ['Electric', 'Ice', 'Fairy', 'Normal'].includes(type) ? '#333' : 'white'
-                                }}>
-                                {type}
-                              </span>
-                            ))}
-                          </CardDescription>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => removeFromTeam(pokemon.id)}
-                        >
-                          <X size={16} />
-                        </Button>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                ))}
+                {team.map(pokemon => renderPokemonCard(pokemon, true))}
 
                 {/* Empty slots */}
                 {Array.from({ length: 6 - team.length }).map((_, index) => (
@@ -462,8 +643,9 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
                           {savedTeam.pokemon.map(pokemon => (
                             <div
                               key={pokemon.id}
-                              className="text-xs px-2 py-1 rounded bg-gray-100"
+                              className="text-xs px-2 py-1 rounded bg-gray-100 cursor-pointer"
                               title={pokemon.name}
+                              onClick={() => showPokemonDetails(pokemon)}
                             >
                               {pokemon.name}
                             </div>
