@@ -51,17 +51,26 @@ import {
 import { Separator } from "@/components/ui/separator"
 
 interface Pokemon {
+  pokemon_id: number
   name: string
-  type: string[]
-  id: number
+  pokedex_number: number
+  primary_type: string
+  secondary_type: string | null
+  base_hp: number
+  base_attack: number
+  base_defense: number
+  base_special_attack: number
+  base_special_defense: number
+  base_speed: number
+  total_stats: number
+  previous_evolution: string | null
+  next_evolution: string | null
+  moves: string
 }
 
 // Extended Pokemon interface with additional details
-interface PokemonDetails extends Pokemon {
+interface PokemonDetails extends Omit<Pokemon, 'moves'> {
   description?: string
-  height?: number
-  weight?: number
-  abilities?: string[]
   stats?: {
     hp: number
     attack: number
@@ -71,6 +80,7 @@ interface PokemonDetails extends Pokemon {
     speed: number
   }
   evolutionChain?: string[]
+  moves?: string[]
 }
 
 interface SavedTeam {
@@ -79,10 +89,10 @@ interface SavedTeam {
   date: string
 }
 
-export default function PokemonTeamManager({ initialPokedex }: { initialPokedex: Pokemon[] }) {
+export default function PokemonTeamManager() {
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [pokedex, setPokedex] = useState<Pokemon[]>(initialPokedex)
+  const [pokedex, setPokedex] = useState<Pokemon[]>([])
   const [activeTab, setActiveTab] = useState<string>('pokedex')
   const [team, setTeam] = useState<Pokemon[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -91,18 +101,66 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
   const [savedTeams, setSavedTeams] = useState<SavedTeam[]>([])
   const [selectedPokemon, setSelectedPokemon] = useState<PokemonDetails | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Define an interface for your API response data
-  interface ApiData {
-    message: string;
-    // Add other properties your API returns here
-  }
+  // Fetch Pokémon data from backend
+  useEffect(() => {
+    const fetchPokemon = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/')
+        const data = await response.json()
+        setPokedex(data)
+      } catch (error) {
+        console.error('Error fetching Pokémon:', error)
+        toast.error("Failed to load Pokémon data", {
+          description: "Please check if the backend server is running."
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-  // Type the data state correctly
-  const [data, setData] = useState<ApiData | null>(null);
+    fetchPokemon()
+  }, [])
 
   // Get unique Pokémon types for the dropdown filter
-  const uniqueTypes = [...new Set(initialPokedex.flatMap(pokemon => pokemon.type))]
+  const uniqueTypes = [...new Set(pokedex.flatMap(pokemon =>
+    [pokemon.primary_type, pokemon.secondary_type].filter((type): type is string => type !== null)
+  ))]
+
+  // Filter Pokémon based on search term and type filter
+  const filteredPokemon = pokedex.filter(pokemon => {
+    const matchesSearch = pokemon.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesType = typeFilter === 'all' ||
+      pokemon.primary_type === typeFilter ||
+      pokemon.secondary_type === typeFilter
+    return matchesSearch && matchesType
+  })
+
+  // Show Pokémon details
+  const showPokemonDetails = (pokemon: Pokemon) => {
+    const details: PokemonDetails = {
+      ...pokemon,
+      description: `${pokemon.name} is a ${pokemon.primary_type}${pokemon.secondary_type ? `/${pokemon.secondary_type}` : ''} type Pokémon.`,
+      stats: {
+        hp: pokemon.base_hp,
+        attack: pokemon.base_attack,
+        defense: pokemon.base_defense,
+        specialAttack: pokemon.base_special_attack,
+        specialDefense: pokemon.base_special_defense,
+        speed: pokemon.base_speed
+      },
+      evolutionChain: [
+        pokemon.previous_evolution,
+        pokemon.name,
+        pokemon.next_evolution
+      ].filter(Boolean) as string[],
+      moves: pokemon.moves?.split(',').map(move => move.trim())
+    }
+
+    setSelectedPokemon(details)
+    setIsDetailOpen(true)
+  }
 
   // Load team and saved teams from localStorage on component mount
   useEffect(() => {
@@ -135,22 +193,8 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
     localStorage.setItem('savedPokemonTeams', JSON.stringify(savedTeams))
   }, [savedTeams])
 
-  useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/data/")
-      .then((response) => response.json())
-      .then((data: ApiData) => setData(data))
-      .catch((error) => console.error("Error fetching data:", error));
-  }, []);
-
-  // Filter Pokémon based on search term and type filter
-  const filteredPokemon = pokedex.filter(pokemon => {
-    const matchesSearch = pokemon.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = typeFilter === 'all' || pokemon.type.includes(typeFilter)
-    return matchesSearch && matchesType
-  })
-
   // Add Pokémon to team (max 6)
-  const addToTeam = (pokemon: Pokemon) => {
+  const addToTeam = (pokemon: Pokemon | PokemonDetails) => {
     if (team.length >= 6) {
       toast.error("Team is full", {
         description: "You can only have 6 Pokémon in your team. Remove one first."
@@ -158,14 +202,20 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
       return
     }
 
-    if (team.some(p => p.id === pokemon.id)) {
+    if (team.some(p => p.pokemon_id === pokemon.pokemon_id)) {
       toast.error("Already in team", {
         description: `${pokemon.name} is already in your team.`
       })
       return
     }
 
-    setTeam([...team, pokemon])
+    // Convert PokemonDetails to Pokemon if needed
+    const pokemonToAdd: Pokemon = {
+      ...pokemon,
+      moves: Array.isArray(pokemon.moves) ? pokemon.moves.join(', ') : (pokemon.moves || '')
+    }
+
+    setTeam([...team, pokemonToAdd])
     toast.success("Added to team", {
       description: `${pokemon.name} was added to your team.`
     })
@@ -173,8 +223,8 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
 
   // Remove Pokémon from team
   const removeFromTeam = (pokemonId: number) => {
-    const pokemonToRemove = team.find(p => p.id === pokemonId)
-    setTeam(team.filter(p => p.id !== pokemonId))
+    const pokemonToRemove = team.find(p => p.pokemon_id === pokemonId)
+    setTeam(team.filter(p => p.pokemon_id !== pokemonId))
 
     if (pokemonToRemove) {
       toast.info("Removed from team", {
@@ -232,35 +282,10 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
     })
   }
 
-  // Show Pokémon details
-  const showPokemonDetails = (pokemon: Pokemon) => {
-    // Mock fetching additional details here
-    // In a real app, you would fetch this from your API
-    const mockDetails: PokemonDetails = {
-      ...pokemon,
-      description: `${pokemon.name} is a ${pokemon.type.join('/')} type Pokémon introduced in Generation I.`,
-      height: Math.random() * 20, // Random height between 0-20
-      weight: Math.random() * 1000, // Random weight between 0-1000
-      abilities: ["Ability 1", "Ability 2", "Hidden Ability"],
-      stats: {
-        hp: Math.floor(Math.random() * 100) + 50,
-        attack: Math.floor(Math.random() * 100) + 50,
-        defense: Math.floor(Math.random() * 100) + 50,
-        specialAttack: Math.floor(Math.random() * 100) + 50,
-        specialDefense: Math.floor(Math.random() * 100) + 50,
-        speed: Math.floor(Math.random() * 100) + 50
-      },
-      evolutionChain: pokemon.id % 3 === 1 ? [pokemon.name, `${pokemon.name} 2`, `${pokemon.name} 3`] : [pokemon.name]
-    }
-
-    setSelectedPokemon(mockDetails)
-    setIsDetailOpen(true)
-  }
-
   // Render individual Pokémon card
   const renderPokemonCard = (pokemon: Pokemon, inTeam: boolean = false) => (
     <Card
-      key={pokemon.id}
+      key={pokemon.pokemon_id}
       className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
       onClick={() => showPokemonDetails(pokemon)}
     >
@@ -268,19 +293,28 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <span>#{pokemon.id.toString().padStart(3, '0')}</span>
+              <span>#{pokemon.pokedex_number.toString().padStart(3, '0')}</span>
               <span>{pokemon.name}</span>
             </CardTitle>
-            <CardDescription>
-              {pokemon.type.map((type) => (
-                <span key={type} className="inline-block px-2 py-1 rounded-full text-xs font-medium mr-1 mb-1"
+            <CardDescription className="mt-2">
+              {pokemon.primary_type && (
+                <span className="inline-block px-2 py-1 rounded-full text-xs font-medium mr-1 mb-1"
                   style={{
-                    backgroundColor: getTypeColor(type),
-                    color: ['Electric', 'Ice', 'Fairy', 'Normal'].includes(type) ? '#333' : 'white'
+                    backgroundColor: getTypeColor(pokemon.primary_type),
+                    color: ['Electric', 'Ice', 'Fairy', 'Normal'].includes(pokemon.primary_type) ? '#333' : 'white'
                   }}>
-                  {type}
+                  {pokemon.primary_type}
                 </span>
-              ))}
+              )}
+              {pokemon.secondary_type && (
+                <span className="inline-block px-2 py-1 rounded-full text-xs font-medium mr-1 mb-1"
+                  style={{
+                    backgroundColor: getTypeColor(pokemon.secondary_type),
+                    color: ['Electric', 'Ice', 'Fairy', 'Normal'].includes(pokemon.secondary_type) ? '#333' : 'white'
+                  }}>
+                  {pokemon.secondary_type}
+                </span>
+              )}
             </CardDescription>
           </div>
           {/* Prevent detail opening when clicking buttons */}
@@ -289,7 +323,7 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
             size="icon"
             onClick={(e) => {
               e.stopPropagation();
-              inTeam ? removeFromTeam(pokemon.id) : addToTeam(pokemon);
+              inTeam ? removeFromTeam(pokemon.pokemon_id) : addToTeam(pokemon);
             }}
           >
             {inTeam ? <X size={16} /> : <Plus size={16} />}
@@ -324,53 +358,33 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
             <>
               <SheetHeader className="text-left">
                 <SheetTitle className="flex items-center gap-2 text-2xl">
-                  <span>#{selectedPokemon.id.toString().padStart(3, '0')}</span>
+                  <span>#{selectedPokemon.pokedex_number.toString().padStart(3, '0')}</span>
                   <span>{selectedPokemon.name}</span>
                 </SheetTitle>
                 <div className="flex gap-1 flex-wrap mb-2">
-                  {selectedPokemon.type.map((type) => (
-                    <span key={type} className="inline-block px-3 py-1 rounded-full text-sm font-medium"
+                  {selectedPokemon.primary_type && (
+                    <span className="inline-block px-3 py-1 rounded-full text-sm font-medium"
                       style={{
-                        backgroundColor: getTypeColor(type),
-                        color: ['Electric', 'Ice', 'Fairy', 'Normal'].includes(type) ? '#333' : 'white'
+                        backgroundColor: getTypeColor(selectedPokemon.primary_type),
+                        color: ['Electric', 'Ice', 'Fairy', 'Normal'].includes(selectedPokemon.primary_type) ? '#333' : 'white'
                       }}>
-                      {type}
+                      {selectedPokemon.primary_type}
                     </span>
-                  ))}
+                  )}
+                  {selectedPokemon.secondary_type && (
+                    <span className="inline-block px-3 py-1 rounded-full text-sm font-medium"
+                      style={{
+                        backgroundColor: getTypeColor(selectedPokemon.secondary_type),
+                        color: ['Electric', 'Ice', 'Fairy', 'Normal'].includes(selectedPokemon.secondary_type) ? '#333' : 'white'
+                      }}>
+                      {selectedPokemon.secondary_type}
+                    </span>
+                  )}
                 </div>
               </SheetHeader>
 
               <div className="mt-6">
                 <p className="text-gray-700">{selectedPokemon.description}</p>
-
-                <div className="grid grid-cols-2 gap-4 mt-6">
-                  <div className="border rounded-md p-3">
-                    <h4 className="text-sm font-semibold text-gray-500 mb-1">Height</h4>
-                    <p>{selectedPokemon.height?.toFixed(1)} m</p>
-                  </div>
-                  <div className="border rounded-md p-3">
-                    <h4 className="text-sm font-semibold text-gray-500 mb-1">Weight</h4>
-                    <p>{selectedPokemon.weight?.toFixed(1)} kg</p>
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <h4 className="font-semibold text-lg mb-2">Abilities</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedPokemon.abilities?.map((ability, index) => (
-                      <span
-                        key={ability}
-                        className={`px-3 py-1 rounded-full text-sm ${
-                          index === selectedPokemon.abilities!.length - 1 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {ability}
-                      </span>
-                    ))}
-                  </div>
-                </div>
 
                 <div className="mt-6">
                   <h4 className="font-semibold text-lg mb-3">Base Stats</h4>
@@ -421,8 +435,25 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
                   </div>
                 )}
 
+                {/* Moves Section */}
+                {selectedPokemon.moves && selectedPokemon.moves.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="font-semibold text-lg mb-3">Available Moves</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedPokemon.moves.map((move, index) => (
+                        <div
+                          key={index}
+                          className="px-3 py-2 rounded-md bg-gray-100 text-sm hover:bg-gray-200 transition-colors cursor-pointer"
+                        >
+                          {move}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="mt-8 flex justify-between">
-                  {!team.some(p => p.id === selectedPokemon.id) ? (
+                  {!team.some(p => p.pokemon_id === selectedPokemon.pokemon_id) ? (
                     <Button
                       onClick={() => {
                         addToTeam(selectedPokemon)
@@ -436,7 +467,7 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
                     <Button
                       variant="destructive"
                       onClick={() => {
-                        removeFromTeam(selectedPokemon.id)
+                        removeFromTeam(selectedPokemon.pokemon_id)
                         setIsDetailOpen(false)
                       }}
                       className="w-full"
@@ -642,7 +673,7 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
                         <div className="flex flex-wrap gap-1">
                           {savedTeam.pokemon.map(pokemon => (
                             <div
-                              key={pokemon.id}
+                              key={pokemon.pokemon_id}
                               className="text-xs px-2 py-1 rounded bg-gray-100 cursor-pointer"
                               title={pokemon.name}
                               onClick={() => showPokemonDetails(pokemon)}
@@ -660,6 +691,14 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="text-center py-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading Pokémon data...</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -667,29 +706,25 @@ export default function PokemonTeamManager({ initialPokedex }: { initialPokedex:
 // Function to get background color based on Pokémon type
 function getTypeColor(type: string): string {
   const typeColors: Record<string, string> = {
-    Normal: '#A8A77A',
-    Fire: '#EE8130',
-    Water: '#6390F0',
-    Electric: '#F7D02C',
-    Grass: '#7AC74C',
-    Ice: '#96D9D6',
-    Fighting: '#C22E28',
-    Poison: '#A33EA1',
-    Ground: '#E2BF65',
-    Flying: '#A98FF3',
-    Psychic: '#F95587',
-    Bug: '#A6B91A',
-    Rock: '#B6A136',
-    Ghost: '#735797',
-    Dragon: '#6F35FC',
-    Dark: '#705746',
-    Steel: '#B7B7CE',
-    Fairy: '#D685AD'
+    'NORMAL': '#A8A77A',
+    'FIRE': '#EE8130',
+    'WATER': '#6390F0',
+    'ELECTRIC': '#F7D02C',
+    'GRASS': '#7AC74C',
+    'ICE': '#96D9D6',
+    'FIGHTING': '#C22E28',
+    'POISON': '#A33EA1',
+    'GROUND': '#E2BF65',
+    'FLYING': '#A98FF3',
+    'PSYCHIC': '#F95587',
+    'BUG': '#A6B91A',
+    'ROCK': '#B6A136',
+    'GHOST': '#735797',
+    'DRAGON': '#6F35FC',
+    'DARK': '#705746',
+    'STEEL': '#B7B7CE',
+    'FAIRY': '#D685AD'
   }
 
-  return typeColors[type] || '#777777'
-}
-
-function setData(data: any): any {
-  throw new Error('Function not implemented.')
+  return typeColors[type.toUpperCase()] || '#777777'
 }
