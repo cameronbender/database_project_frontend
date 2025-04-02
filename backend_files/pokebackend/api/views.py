@@ -1,10 +1,10 @@
 from rest_framework import generics
-from .models import PokemonFullInfo, TeamPokemonMoves, PokemonEvolutions, RaidBossDetails
+from .models import PokemonFullInfo, TeamPokemonMoves, PokemonEvolutions, RaidBossDetails, TeamOverview
 from .serializers import (
     PokemonFullInfoSerializer,
     TeamPokemonMovesSerializer,
     PokemonEvolutionsSerializer,
-    RaidBossDetailsSerializer
+    RaidBossDetailsSerializer, TeamOverviewSerializer
 )
 
 # List all Pokémon (using the full info view)
@@ -34,3 +34,6 @@ class RaidBossDetailsList(generics.ListAPIView):
     serializer_class = RaidBossDetailsSerializer
 
 
+class TeamOverviewList(generics.ListAPIView):
+    queryset = TeamOverview.objects.all()
+    serializer_class = TeamOverviewSerializer

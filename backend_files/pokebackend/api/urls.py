@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     PokemonFullInfoList, PokemonFullInfoDetail,
-    TeamPokemonMovesList, PokemonEvolutionsList, RaidBossDetailsList
+    TeamPokemonMovesList, PokemonEvolutionsList, RaidBossDetailsList, TeamOverviewList
 )
 
 urlpatterns = [
@@ -10,4 +10,5 @@ urlpatterns = [
     path('team-pokemon-moves/', TeamPokemonMovesList.as_view(), name='team-pokemon-moves-list'),
     path('pokemon-evolutions/', PokemonEvolutionsList.as_view(), name='pokemon-evolutions-list'),
     path('raid-boss-details/', RaidBossDetailsList.as_view(), name='raid-boss-details-list'),
+    path('team-overview/', TeamOverviewList.as_view(), name='team-overview-list'),
 ]

@@ -80,3 +80,13 @@ class PokemonGoInfo(models.Model):
     class Meta:
         managed = False
         db_table = 'view_pokemon_go_info'
+
+class TeamOverview(models.Model):
+    team_id = models.IntegerField(primary_key=True)
+    team_name = models.CharField(max_length=50)
+    username = models.CharField(max_length=50)
+    team_members = models.TextField()
+
+    class Meta:
+        managed = False
+        db_table = 'view_team_overview'

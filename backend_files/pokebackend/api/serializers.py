@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import PokemonFullInfo, TeamPokemonMoves, PokemonEvolutions, RaidBossDetails
+from .models import PokemonFullInfo, TeamPokemonMoves, PokemonEvolutions, RaidBossDetails, TeamOverview
+
 
 class PokemonFullInfoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -19,4 +20,9 @@ class PokemonEvolutionsSerializer(serializers.ModelSerializer):
 class RaidBossDetailsSerializer(serializers.ModelSerializer):
     class Meta:
         model = RaidBossDetails
+        fields = '__all__'
+
+class TeamOverviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TeamOverview
         fields = '__all__'
